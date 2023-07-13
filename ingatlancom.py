@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import os
 import datetime
 import time  # new import
@@ -144,6 +147,15 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
 
     # Capture screenshot
     driver.get(url)
+
+    # Wait for the cookie button to be clickable and click it
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"))
+        ).click()
+    except Exception as e:
+        print(f"Could not click on the cookie consent button. Error: {e}")
+
     total_width = driver.execute_script("return document.body.offsetWidth")
     total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
     driver.set_window_size(total_width, total_height)
