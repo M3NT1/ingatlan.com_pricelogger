@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 import os
 import datetime
+import time  # new import
 
 # Define file name
 file_name = 'prices.xlsx'
@@ -33,6 +34,9 @@ sheet2 = wb['Sheet2'] if 'Sheet2' in wb.sheetnames else wb.create_sheet('Sheet2'
 # Selenium WebDriver for screenshots
 options = Options()
 options.add_argument("--headless")
+options.add_argument("start-maximized")
+options.add_argument("disable-infobars")
+options.add_argument("--disable-extensions")
 driver = webdriver.Firefox(options=options)
 
 # Define headers for requests
@@ -140,6 +144,10 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
 
     # Capture screenshot
     driver.get(url)
+    total_width = driver.execute_script("return document.body.offsetWidth")
+    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
+    driver.set_window_size(total_width, total_height)
+    time.sleep(2)  # wait for 2 seconds to allow the page to load completely
     screenshot_filename = f"{url.split('/')[-1]}_{current_date}.png"
     screenshot_path = os.path.join(current_date_folder, screenshot_filename)
     driver.save_screenshot(screenshot_path)
