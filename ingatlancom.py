@@ -96,7 +96,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
         response.raise_for_status()  # Raise exception if not 200 status
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')  # Python 3.6
-        price = "I didn't find the product with this link"
+        price = "Nincs"
         sheet1.cell(row=index, column=date_column, value=price)
         continue
 
@@ -106,7 +106,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
     # Check if page does not exist
     if "A keresett oldal nem található!" in soup.text:
         # Set price as not found
-        price = "I didn't find the product with this link"
+        price = "Nincs"
     else:
         # Find price div
         price_div = soup.find('div', {
@@ -127,7 +127,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
                 continue
         else:
             # Set price as not found
-            price = "I didn't find the product with this link"
+            price = "Nincs"
 
     # Get the previous price for the current URL
     previous_price = previous_prices.get(url)
