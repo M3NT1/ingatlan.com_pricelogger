@@ -3,8 +3,12 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import os
 import datetime
+import time  # new import
 
 # Define file name
 file_name = 'prices.xlsx'
@@ -33,6 +37,9 @@ sheet2 = wb['Sheet2'] if 'Sheet2' in wb.sheetnames else wb.create_sheet('Sheet2'
 # Selenium WebDriver for screenshots
 options = Options()
 options.add_argument("--headless")
+options.add_argument("start-maximized")
+options.add_argument("disable-infobars")
+options.add_argument("--disable-extensions")
 driver = webdriver.Firefox(options=options)
 
 # Define headers for requests
@@ -96,7 +103,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
         response.raise_for_status()  # Raise exception if not 200 status
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')  # Python 3.6
-        price = "I didn't find the product with this link"
+        price = "Nincs"
         sheet1.cell(row=index, column=date_column, value=price)
         continue
 
@@ -106,7 +113,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
     # Check if page does not exist
     if "A keresett oldal nem található!" in soup.text:
         # Set price as not found
-        price = "I didn't find the product with this link"
+        price = "Nincs"
     else:
         # Find price div
         price_div = soup.find('div', {
@@ -127,7 +134,7 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
                 continue
         else:
             # Set price as not found
-            price = "I didn't find the product with this link"
+            price = "Nincs"
 
     # Get the previous price for the current URL
     previous_price = previous_prices.get(url)
@@ -140,6 +147,19 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
 
     # Capture screenshot
     driver.get(url)
+
+    # Wait for the cookie button to be clickable and click it
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"))
+        ).click()
+    except Exception as e:
+        print(f"Could not click on the cookie consent button. Error: {e}")
+
+    total_width = driver.execute_script("return document.body.offsetWidth")
+    total_height = driver.execute_script("return document.body.parentNode.scrollHeight")
+    driver.set_window_size(total_width, total_height)
+    time.sleep(2)  # wait for 2 seconds to allow the page to load completely
     screenshot_filename = f"{url.split('/')[-1]}_{current_date}.png"
     screenshot_path = os.path.join(current_date_folder, screenshot_filename)
     driver.save_screenshot(screenshot_path)
