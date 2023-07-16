@@ -10,17 +10,15 @@ import os
 import datetime
 import time
 
-# Define file name
 file_name = 'prices.xlsx'
 
-# Check if file exists
 if os.path.exists(file_name):
     wb = load_workbook(file_name)
 else:
     wb = Workbook()
     sheet1 = wb.active
 
-    headers = ['Link', 'Megjegyzes', 'Product ID', 'Location']  # Add 'Location' to headers
+    headers = ['Link', 'Megjegyzes', 'Product ID', 'Location', 'Vármegye, teleprész, utca']  # Add a new header
     sheet1.append(headers)
     wb.save(filename=file_name)
 
@@ -41,7 +39,8 @@ current_date = datetime.datetime.now().strftime('%Y.%m.%d')
 
 date_column = None
 product_id_column = None
-location_column = None  # Add a new column variable for the location data
+location_column = None
+address_column = None  # Add a new column variable for the address data
 
 for column in sheet1.columns:
     if column[0].value == current_date:
@@ -66,18 +65,29 @@ if product_id_column is None:
     sheet1.cell(row=1, column=product_id_column, value='Product ID')
     print("Created new Product ID column.")
 
-# Check if the location column exists
 for index, header in enumerate(headers):
     if header.value == 'Location':
         location_column = index + 1
         print("Location column already exists.")
         break
 
-# Add the location column if it doesn't exist
 if location_column is None:
-    location_column = product_id_column + 1  # Add it after the 'Product ID' column
+    location_column = product_id_column + 1
     sheet1.cell(row=1, column=location_column, value='Location')
     print("Created new Location column.")
+
+# Check if the address column exists
+for index, header in enumerate(headers):
+    if header.value == 'Vármegye, teleprész, utca':
+        address_column = index + 1
+        print("Vármegye, teleprész, utca column already exists.")
+        break
+
+# Add the address column if it doesn't exist
+if address_column is None:
+    address_column = location_column + 1  # Add it after the 'Location' column
+    sheet1.cell(row=1, column=address_column, value='Vármegye, teleprész, utca')
+    print("Created new Vármegye, teleprész, utca column.")
 
 screenshots_folder = os.path.join(os.getcwd(), 'screenshots')
 if not os.path.exists(screenshots_folder):
@@ -151,11 +161,19 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
     sheet1.cell(row=index, column=product_id_column, value=product_id)
     print(f"Product ID for URL: {url} is {product_id}")
 
-    # Extract and write the location data to Excel
-    location = soup.find('span', {
-        'class': 'card-title px-0 fw-bold fs-4 mb-0 font-family-secondary'}).text
-    sheet1.cell(row=index, column=location_column, value=location)
-    print(f"Location for URL: {url} is {location}")
+    location_data = soup.find('span', {
+        'class': 'card-title px-0 fw-bold fs-4 mb-0 font-family-secondary'}).text if soup.find('span', {
+        'class': 'card-title px-0 fw-bold fs-4 mb-0 font-family-secondary'}) else "NULL"
+    if ',' in location_data:
+        location, address = location_data.split(',', 1)
+    else:
+        location, address = location_data, "NULL"
+
+    sheet1.cell(row=index, column=location_column, value=location.strip())
+    print(f"Location for URL: {url} is {location.strip()}")
+
+    sheet1.cell(row=index, column=address_column, value=address.strip())
+    print(f"Vármegye, teleprész, utca for URL: {url} is {address.strip()}")
 
 wb.save(filename=file_name)
 driver.quit()
