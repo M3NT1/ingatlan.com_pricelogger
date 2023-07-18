@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
@@ -14,9 +15,15 @@ from PIL import Image
 # Define file name
 file_name = 'prices.xlsx'
 
-# Check if file exists
+# Define yellow fill
+yellow_fill = PatternFill(start_color="FFFF00",
+                          end_color="FFFF00",
+                          fill_type="solid")
+
+# Check if file exists and load or create worksheets
 if os.path.exists(file_name):
     wb = load_workbook(file_name)
+    sheet1 = wb['Sheet'] if 'Sheet' in wb.sheetnames else wb.create_sheet('Sheet')
 else:
     # Create a workbook and select active worksheet
     wb = Workbook()
@@ -31,8 +38,6 @@ else:
     # Save the workbook
     wb.save(filename=file_name)
 
-# Load or create worksheets
-sheet1 = wb['Sheet'] if 'Sheet' in wb.sheetnames else wb.create_sheet('Sheet')
 sheet2 = wb['Sheet2'] if 'Sheet2' in wb.sheetnames else wb.create_sheet('Sheet2')
 
 # Selenium WebDriver for screenshots
@@ -45,9 +50,6 @@ driver = webdriver.Firefox(options=options)
 
 # Define headers for requests
 user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
-
-# Create dictionary to store previous prices
-previous_prices = {}
 
 # Get the current date
 current_date = datetime.datetime.now().strftime('%Y.%m.%d')
@@ -153,7 +155,10 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
     except requests.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')  # Python 3.6
         price = "Nincs"
-        sheet1.cell(row=index, column=date_column, value=price)
+        if sheet1.cell(row=index, column=date_column).value is None:
+            sheet1.cell(row=index, column=date_column, value=price)
+        else:
+            print(f"No change in price for URL: {url}")
         continue
 
     # BeautifulSoup to parse the HTML
@@ -185,14 +190,12 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
             # Set price as not found
             price = "Nincs"
 
-    # Get the previous price for the current URL
-    previous_price = previous_prices.get(url)
-
-    # Write price to Excel if changed or the current date column doesn't have a value
-    if price != previous_price or sheet1.cell(row=index, column=date_column).value is None:
+    # Write price to Excel if the cell is empty
+    if sheet1.cell(row=index, column=date_column).value is None:
         sheet1.cell(row=index, column=date_column, value=price)
-        previous_prices[url] = price
         print(f"Updated price for URL: {url}")
+    else:
+        print(f"No change in price for URL: {url}")
 
     # Capture screenshot
     driver.get(url)
@@ -224,8 +227,11 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
 
     # Write product ID to Excel
     product_id = url.split('/')[-1]
-    sheet1.cell(row=index, column=product_id_column, value=product_id)
-    print(f"Product ID for URL: {url} is {product_id}")
+    if sheet1.cell(row=index, column=product_id_column).value is None:
+        sheet1.cell(row=index, column=product_id_column, value=product_id)
+        print(f"Product ID for URL: {url} is {product_id}")
+    else:
+        print(f"No change in Product ID for URL: {url}")
 
     # Write location to Excel
     location_data = soup.find('span', {
@@ -236,17 +242,34 @@ for index, row in enumerate(sheet1.iter_rows(min_row=2, values_only=True), start
     else:
         location, address = location_data, "NULL"
 
-    sheet1.cell(row=index, column=location_column, value=location.strip())
-    print(f"Location for URL: {url} is {location.strip()}")
+    if sheet1.cell(row=index, column=location_column).value is None:
+        sheet1.cell(row=index, column=location_column, value=location.strip())
+        print(f"Location for URL: {url} is {location.strip()}")
+    else:
+        print(f"No change in Location for URL: {url}")
 
-    sheet1.cell(row=index, column=address_column, value=address.strip())
-    print(f"Vármegye, teleprész, utca for URL: {url} is {address.strip()}")
+    if sheet1.cell(row=index, column=address_column).value is None:
+        sheet1.cell(row=index, column=address_column, value=address.strip())
+        print(f"Vármegye, teleprész, utca for URL: {url} is {address.strip()}")
+    else:
+        print(f"No change in Vármegye, teleprész, utca for URL: {url}")
 
     # Write advertiser to Excel
     advertiser_span = soup.find('span', {'class': 'd-block fw-500 font-family-secondary fs-6 text-onyx'})
     advertiser = advertiser_span.text if advertiser_span else 'Magánszemély'
-    sheet1.cell(row=index, column=advertiser_column, value=advertiser)
-    print(f"Hirdető for URL: {url} is {advertiser}")
+    if sheet1.cell(row=index, column=advertiser_column).value is None:
+        sheet1.cell(row=index, column=advertiser_column, value=advertiser)
+        print(f"Hirdető for URL: {url} is {advertiser}")
+    else:
+        print(f"No change in Hirdető for URL: {url}")
+
+# Iterate through each day's column for each product
+for row in sheet1.iter_rows(min_row=2, max_row=sheet1.max_row, min_col=advertiser_column+1, max_col=sheet1.max_column):
+    for i in range(1, len(row)):
+        # If the price has changed compared to the previous day, colorize the cell
+        if row[i].value != row[i - 1].value:
+            row[i].fill = yellow_fill
+            print(f"The price changed from {row[i - 1].value} ({sheet1.cell(row=1, column=row[i - 1].column).value}) to {row[i].value} ({sheet1.cell(row=1, column=row[i].column).value})")
 
 # Save the workbook
 wb.save(filename=file_name)
